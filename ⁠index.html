@@ -1,0 +1,223 @@
+# lottery-game
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>週年慶幸運大抽獎</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        p {
+            color: #ddd;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+        /* 轉盤外框 */
+        .wheel-wrapper {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            margin: 0 auto 30px auto;
+        }
+        /* 指針 */
+        .pointer {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 30px solid #ff4757;
+            z-index: 10;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+        }
+        /* 轉盤本體 */
+        .wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 8px solid #fff;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            transition: transform 4s cubic-bezier(0.15, 0.85, 0.12, 0.99); /* 真實減速曲線 */
+            background: conic-gradient(
+                #ff6b6b 0deg 60deg,
+                #48dbfb 60deg 120deg,
+                #1dd1a1 120deg 180deg,
+                #feca57 180deg 240deg,
+                #ff9ff3 240deg 300deg,
+                #54a0ff 300deg 360deg
+            );
+        }
+        /* 轉盤上的文字（簡化示意，用顏色區分） */
+        .wheel-section {
+            position: absolute;
+            width: 50%;
+            height: 50%;
+            transform-origin: 100% 100%;
+            left: 0;
+            top: 0;
+        }
+        
+        /* 抽獎按鈕 */
+        .spin-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4);
+            transition: transform 0.1s, background 0.2s;
+        }
+        .spin-btn:active {
+            transform: scale(0.95);
+        }
+        .spin-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* 中獎彈窗 */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 100;
+        }
+        .modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            background: #fff;
+            color: #333;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 320px;
+            width: 90%;
+            transform: scale(0.8);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal.show .modal-content {
+            transform: scale(1);
+        }
+        .modal-content h2 {
+            color: #ff4757;
+            margin-bottom: 15px;
+        }
+        .modal-content p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .modal-btn {
+            background: #2ed573;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            font-size: 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🎉 全民大抽獎 🎉</h1>
+        <p>每人只有一次抽獎機會，試下手氣啦！</p>
+
+        <div class="wheel-wrapper">
+            <div class="pointer"></div>
+            <div class="wheel" id="wheel"></div>
+        </div>
+
+        <button class="spin-btn" id="spinBtn" onclick="startSpin()">開始抽獎</button>
+    </div>
+
+    <!-- 中獎彈窗 -->
+    <div class="modal" id="resultModal">
+        <div class="modal-content">
+            <h2>🎊 恭喜中獎！ 🎊</h2>
+            <p>你抽中咗：<br><strong style="font-size: 1.2rem; color: #1e3c72;">✈️ 日本雙人來回機票 + 酒店套票（旅行獎）！</strong></p>
+            <button class="modal-btn" onclick="closeModal()">太正喇！</button>
+        </div>
+    </div>
+
+    <script>
+        let currentRotation = 0;
+
+        function startSpin() {
+            const btn = document.getElementById('spinBtn');
+            const wheel = document.getElementById('wheel');
+            const modal = document.getElementById('resultModal');
+
+            // 停用按鈕，防止重複點擊
+            btn.disabled = true;
+
+            // 計算旋轉角度：
+            // 假設 6 個格（每格 60 度）。我們預先夾好，無論點轉，最後一定會停喺指定「旅行獎」嗰格。
+            // 這裡設定轉 5 到 7 個圈（1800度 - 2520度），再加上精準嘅角度停低。
+            const randomRounds = 360 * 5; // 轉 5 圈基本度數
+            const targetDegree = 30;     // 指定停喺某個位置（對應旅行獎）
+            
+            currentRotation += randomRounds + (360 - (currentRotation % 360)) + targetDegree;
+
+            wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+            // 轉完之後（4秒後）彈出視窗
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 4000);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('resultModal');
+            modal.classList.remove('show');
+        }
+    </script>
+
+</body>
+</html>
